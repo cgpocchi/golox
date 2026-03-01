@@ -7,7 +7,7 @@ type TokenType int
 
 const (
 	// Single - char tokens
-	LEFT_PAREN TokenType = iota
+	LEFT_PAREN TokenType = iota + 1
 	RIGHT_PAREN
 	LEFT_BRACE
 	RIGHT_BRACE
@@ -42,7 +42,7 @@ const (
 	FUN
 	FOR
 	IF
-	EMPTY
+	NONE
 	OR
 	PRINT
 	RETURN

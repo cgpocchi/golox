@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"golox/internal/lox"
+	"golox/internal/scanner"
 	"os"
 )
 
@@ -12,7 +13,7 @@ func runFile(path string, errTracker *lox.ErrorTracker) {
 	if err != nil {
 		panic(fmt.Sprintf("error %v reading file %s", err, path))
 	}
-	run(string(content))
+	run(string(content), errTracker)
 	if errTracker.HadError {
 		os.Exit(65)
 	}
@@ -30,14 +31,19 @@ func runPrompt(errTracker *lox.ErrorTracker) {
 			break
 		}
 
-		run(line)
+		run(line, errTracker)
 		errTracker.HadError = false
 	}
 }
 
-// TODO: Implement Me!
-func run(source string) {
-	fmt.Println("Echoing command: " + source)
+func run(source string, errTracker *lox.ErrorTracker) {
+	scanner := scanner.NewScanner(source, errTracker)
+	tokens := scanner.ScanTokens()
+
+	// print tokens
+	for _, tok := range tokens {
+		fmt.Println(tok)
+	}
 }
 
 func main() {

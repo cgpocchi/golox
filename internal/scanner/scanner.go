@@ -5,6 +5,7 @@ import (
 	"golox/internal/lox"
 	"golox/internal/token"
 	"golox/internal/utils"
+	"strconv"
 )
 
 // Struct for scanning a source string into a slice of tokens.
@@ -17,10 +18,29 @@ type Scanner struct {
 	line       int
 }
 
+var keywords = map[string]token.TokenType{
+	"and":    token.AND,
+	"class":  token.CLASS,
+	"else":   token.ELSE,
+	"false":  token.FALSE,
+	"for":    token.FOR,
+	"fun":    token.FUN,
+	"if":     token.IF,
+	"none":   token.NONE,
+	"or":     token.OR,
+	"print":  token.PRINT,
+	"return": token.RETURN,
+	"super":  token.SUPER,
+	"this":   token.THIS,
+	"true":   token.TRUE,
+	"var":    token.VAR,
+	"while":  token.WHILE,
+}
+
 func NewScanner(source string, errTracker *lox.ErrorTracker) *Scanner {
 	return &Scanner{
 		source:     source,
-		tokens:     make([]token.Token, len(source)),
+		tokens:     make([]token.Token, 0, len(source)),
 		errTracker: errTracker,
 		start:      0,
 		current:    0,
@@ -90,7 +110,75 @@ func (s *Scanner) scanToken() {
 	case '"':
 		s.addStringToken()
 	default:
-		s.errTracker.Error(s.line, "Unexpected character.")
+		if isDigit(c) {
+			s.addNumberToken()
+		} else if isAlpha(c) {
+			s.addIdentifierToken()
+		} else {
+			s.errTracker.Error(s.line, "Unexpected character.")
+		}
+	}
+}
+
+// Helper to determine if the given byte is a letter or digit.
+func isAlphaNumeric(c byte) bool {
+	return isAlpha(c) || isDigit(c)
+}
+
+// Helper to check if the given byte is an alphabetical character or wild card.
+func isAlpha(c byte) bool {
+	return (c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		c == '_'
+}
+
+// Helper to check if the given byte is a digit.
+func isDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
+
+// Get but don't consume the next character.
+func (s *Scanner) peekNext() byte {
+	if s.current+1 > len(s.source) {
+		return '\x00'
+	}
+	return s.source[s.current+1]
+}
+
+// Add identifier (variable name or keyword) token.
+func (s *Scanner) addIdentifierToken() {
+	for isAlphaNumeric(s.peek()) {
+		s.advance()
+	}
+	text := s.source[s.start:s.current]
+
+	if tokenType, ok := keywords[text]; !ok {
+		s.addTokenNoLit(token.IDENTIFIER)
+	} else {
+		s.addTokenNoLit(tokenType)
+	}
+}
+
+// Add number literal token.
+func (s *Scanner) addNumberToken() {
+	for isDigit(s.peek()) {
+		s.advance()
+	}
+
+	// look for fractional part
+	if s.peek() == '.' && isDigit(s.peekNext()) {
+		// consume the decimal
+		s.advance()
+
+		for isDigit(s.peek()) {
+			s.advance()
+		}
+	}
+	num, err := strconv.ParseFloat(s.source[s.start:s.current], 64)
+	if err != nil {
+		s.errTracker.Error(s.line, "Error parsing number")
+	} else {
+		s.addToken(token.NUMBER, num)
 	}
 }
 
