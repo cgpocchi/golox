@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"iter"
+	"maps"
 	"os"
 	"strings"
 )
@@ -21,14 +23,27 @@ func defineAst(outputDir, baseName string, types map[string][]string) {
 	writeToFile(f, "import \"golox/internal/token\"\n")
 	writeToFile(f, "\n")
 
+	// define visitor interface
+	defineVisitor(f, maps.Keys(types))
+
 	// add Expr interface
-	writeToFile(f, "type Expr interface { }\n")
+	writeToFile(f, "type Expr interface {\n")
+	writeToFile(f, "    Accept(visitor Visitor[any]) any\n")
+	writeToFile(f, "}\n\n")
 
 	// define structs for each CFG rule
 	for structName, fields := range types {
 		writeToFile(f, "\n")
 		defineType(f, structName, fields)
 	}
+}
+
+func defineVisitor(f *os.File, types iter.Seq[string]) {
+	writeToFile(f, "type Visitor[T any] interface {\n")
+	for exprType := range types {
+		writeToFile(f, fmt.Sprintf("    Visit%s(expr *%s) T\n", exprType, exprType))
+	}
+	writeToFile(f, "}\n\n")
 }
 
 // Create a Type struct in the given file.
@@ -44,8 +59,7 @@ func defineType(f *os.File, structName string, fieldList []string) {
 			sb.WriteString(field)
 		}
 	}
-	writeToFile(f, "}\n")
-	writeToFile(f, "\n")
+	writeToFile(f, "}\n\n")
 
 	// create constructor method
 	writeToFile(f, fmt.Sprintf("func New%s(%s) (* %s) {\n", structName, sb.String(), structName))
@@ -55,7 +69,12 @@ func defineType(f *os.File, structName string, fieldList []string) {
 		writeToFile(f, fmt.Sprintf("        %s: %s,\n", param, param))
 	}
 	writeToFile(f, "    }\n")
-	writeToFile(f, "}\n")
+	writeToFile(f, "}\n\n")
+
+	// Implement visitor accept method
+	writeToFile(f, fmt.Sprintf("func (e *%s) Accept(visitor Visitor[any]) any {\n", structName))
+	writeToFile(f, fmt.Sprintf("    return visitor.Visit%s(e)\n", structName))
+	writeToFile(f, "}\n\n")
 }
 
 // Write the given string to the given file.
